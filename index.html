@@ -6,343 +6,393 @@
     <meta name="description" content="Assistant IA Personnel - Votre compagnon intelligent">
     <title>Assistant IA Personnel</title>
     
-    <!-- PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1F2937">
-    <link rel="apple-touch-icon" href="icon.png">
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-        }
-        .animate-bounce {
-            animation: bounce 1s infinite;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         @keyframes bounce {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-10px); }
         }
+        .dot-bounce { animation: bounce 1s infinite; }
+        .dot-bounce:nth-child(2) { animation-delay: 0.15s; }
+        .dot-bounce:nth-child(3) { animation-delay: 0.3s; }
     </style>
 </head>
 <body class="bg-gray-900 text-white">
-    <div id="app"></div>
+    <div id="app">
+        <!-- Header -->
+        <header class="bg-gray-800 shadow-lg p-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                    <span class="text-white font-bold">AI</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold">Assistant Personnel</h1>
+                    <p class="text-xs text-gray-400">Toujours à votre écoute</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-gray-700 hover:opacity-80" id="themeBtn">
+                    <svg id="sunIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                </button>
+                <button onclick="toggleSettings()" class="p-2 rounded-lg bg-gray-700 hover:opacity-80">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </button>
+            </div>
+        </header>
 
-    <script type="module">
-        import { createRoot } from 'https://esm.sh/react@18.2.0/client';
-        import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18.2.0';
-        import htm from 'https://esm.sh/htm@3.1.1';
+        <!-- Settings Panel -->
+        <div id="settingsPanel" class="hidden bg-gray-800 p-6 m-4 rounded-xl shadow-lg space-y-4">
+            <h2 class="text-lg font-bold mb-4">Paramètres</h2>
+            
+            <div>
+                <label class="block text-sm mb-2">Votre nom</label>
+                <input type="text" id="userName" placeholder="Comment vous appelez-vous ?" 
+                    class="w-full p-3 rounded-lg bg-gray-700 border-0" onchange="saveSettings()">
+            </div>
 
-        const html = htm.bind(React.createElement);
+            <div>
+                <label class="block text-sm mb-2">Personnalité de l'IA</label>
+                <select id="aiPersonality" class="w-full p-3 rounded-lg bg-gray-700 border-0" onchange="saveSettings()">
+                    <option value="helpful">Serviable et amical</option>
+                    <option value="professional">Professionnel</option>
+                    <option value="casual">Décontracté</option>
+                    <option value="concise">Concis et direct</option>
+                </select>
+            </div>
 
-        const PersonalAI = () => {
-            const [messages, setMessages] = useState([]);
-            const [input, setInput] = useState('');
-            const [isListening, setIsListening] = useState(false);
-            const [isThinking, setIsThinking] = useState(false);
-            const [darkMode, setDarkMode] = useState(true);
-            const [showSettings, setShowSettings] = useState(false);
-            const [userName, setUserName] = useState('');
-            const [voiceEnabled, setVoiceEnabled] = useState(true);
-            const [aiPersonality, setAiPersonality] = useState('helpful');
-            const messagesEndRef = useRef(null);
-            const recognitionRef = useRef(null);
+            <div class="flex items-center justify-between">
+                <span>Réponses vocales</span>
+                <button onclick="toggleVoice()" id="voiceToggle" class="w-12 h-6 rounded-full bg-blue-500 relative">
+                    <div id="voiceToggleBtn" class="w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all duration-300 translate-x-6"></div>
+                </button>
+            </div>
 
-            useEffect(() => {
-                loadData();
-                initSpeechRecognition();
-                lucide.createIcons();
-            }, []);
+            <div class="flex gap-2 pt-4">
+                <button onclick="exportData()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg">
+                    ⬇️ Exporter
+                </button>
+                <button onclick="clearHistory()" class="flex-1 bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg">
+                    🗑️ Effacer
+                </button>
+            </div>
+        </div>
 
-            useEffect(() => {
-                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-                lucide.createIcons();
-            }, [messages, showSettings]);
+        <!-- Messages Area -->
+        <div id="messagesArea" class="max-w-4xl mx-auto p-4 pb-32">
+            <div id="welcomeScreen" class="text-center py-12">
+                <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <span class="text-white text-3xl font-bold">AI</span>
+                </div>
+                <h2 class="text-2xl font-bold mb-2">Bonjour !</h2>
+                <p class="text-gray-400">Comment puis-je vous aider aujourd'hui ?</p>
+            </div>
+            <div id="messagesList"></div>
+            <div id="thinkingIndicator" class="hidden flex justify-start mb-4">
+                <div class="p-4 rounded-2xl bg-gray-800">
+                    <div class="flex gap-1">
+                        <div class="w-2 h-2 bg-blue-500 rounded-full dot-bounce"></div>
+                        <div class="w-2 h-2 bg-blue-500 rounded-full dot-bounce"></div>
+                        <div class="w-2 h-2 bg-blue-500 rounded-full dot-bounce"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-            const initSpeechRecognition = () => {
-                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                    recognitionRef.current = new SpeechRecognition();
-                    recognitionRef.current.continuous = false;
-                    recognitionRef.current.interimResults = false;
-                    recognitionRef.current.lang = 'fr-FR';
+        <!-- Input Area -->
+        <div class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-gray-900 to-transparent">
+            <div class="max-w-4xl mx-auto">
+                <div class="bg-gray-800 rounded-2xl shadow-2xl p-4 flex gap-2">
+                    <button onclick="toggleListening()" id="micBtn" class="p-3 rounded-xl bg-blue-600 text-white hover:bg-blue-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                        </svg>
+                    </button>
+                    <input type="text" id="messageInput" placeholder="Tapez votre message..." 
+                        class="flex-1 p-3 rounded-xl bg-gray-700 border-0" onkeypress="handleKeyPress(event)">
+                    <button onclick="sendMessage()" id="sendBtn" class="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                    recognitionRef.current.onresult = (event) => {
-                        const transcript = event.results[0][0].transcript;
-                        setInput(transcript);
-                        setIsListening(false);
-                    };
+    <script>
+        let messages = [];
+        let isThinking = false;
+        let recognition = null;
+        let isListening = false;
+        let settings = {
+            userName: '',
+            voiceEnabled: true,
+            aiPersonality: 'helpful',
+            darkMode: true
+        };
 
-                    recognitionRef.current.onerror = () => setIsListening(false);
-                    recognitionRef.current.onend = () => setIsListening(false);
-                }
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            loadMessages();
+            initSpeechRecognition();
+        });
+
+        function loadSettings() {
+            const saved = localStorage.getItem('ai-settings');
+            if (saved) {
+                settings = JSON.parse(saved);
+                document.getElementById('userName').value = settings.userName || '';
+                document.getElementById('aiPersonality').value = settings.aiPersonality || 'helpful';
+                updateVoiceToggle();
+                updateWelcome();
+            }
+        }
+
+        function saveSettings() {
+            settings.userName = document.getElementById('userName').value;
+            settings.aiPersonality = document.getElementById('aiPersonality').value;
+            localStorage.setItem('ai-settings', JSON.stringify(settings));
+            updateWelcome();
+        }
+
+        function updateWelcome() {
+            const welcome = document.getElementById('welcomeScreen');
+            if (welcome && messages.length === 0) {
+                welcome.querySelector('h2').textContent = `Bonjour${settings.userName ? ' ' + settings.userName : ''} !`;
+            }
+        }
+
+        function toggleVoice() {
+            settings.voiceEnabled = !settings.voiceEnabled;
+            updateVoiceToggle();
+            saveSettings();
+        }
+
+        function updateVoiceToggle() {
+            const toggle = document.getElementById('voiceToggle');
+            const btn = document.getElementById('voiceToggleBtn');
+            if (settings.voiceEnabled) {
+                toggle.classList.remove('bg-gray-500');
+                toggle.classList.add('bg-blue-500');
+                btn.classList.add('translate-x-6');
+                btn.classList.remove('translate-x-1');
+            } else {
+                toggle.classList.add('bg-gray-500');
+                toggle.classList.remove('bg-blue-500');
+                btn.classList.remove('translate-x-6');
+                btn.classList.add('translate-x-1');
+            }
+        }
+
+        function toggleSettings() {
+            const panel = document.getElementById('settingsPanel');
+            panel.classList.toggle('hidden');
+        }
+
+        function toggleDarkMode() {
+            settings.darkMode = !settings.darkMode;
+            saveSettings();
+        }
+
+        function loadMessages() {
+            const saved = localStorage.getItem('ai-messages');
+            if (saved) {
+                messages = JSON.parse(saved);
+                renderMessages();
+            }
+        }
+
+        function renderMessages() {
+            const list = document.getElementById('messagesList');
+            const welcome = document.getElementById('welcomeScreen');
+            
+            if (messages.length === 0) {
+                welcome.classList.remove('hidden');
+                list.innerHTML = '';
+            } else {
+                welcome.classList.add('hidden');
+                list.innerHTML = messages.map(msg => {
+                    const isUser = msg.role === 'user';
+                    const time = new Date(msg.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                    return `
+                        <div class="mb-4 flex ${isUser ? 'justify-end' : 'justify-start'}">
+                            <div class="max-w-[80%] p-4 rounded-2xl ${isUser ? 'bg-blue-600 text-white' : 'bg-gray-800'}">
+                                <p class="whitespace-pre-wrap">${escapeHtml(msg.content)}</p>
+                                <p class="text-xs mt-2 opacity-60">${time}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                list.scrollTop = list.scrollHeight;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function initSpeechRecognition() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                recognition.lang = 'fr-FR';
+                recognition.continuous = false;
+
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    document.getElementById('messageInput').value = transcript;
+                    isListening = false;
+                    updateMicButton();
+                };
+
+                recognition.onend = () => {
+                    isListening = false;
+                    updateMicButton();
+                };
+            }
+        }
+
+        function toggleListening() {
+            if (!recognition) return;
+            
+            if (isListening) {
+                recognition.stop();
+            } else {
+                recognition.start();
+                isListening = true;
+                updateMicButton();
+            }
+        }
+
+        function updateMicButton() {
+            const btn = document.getElementById('micBtn');
+            if (isListening) {
+                btn.classList.remove('bg-blue-600');
+                btn.classList.add('bg-red-500', 'animate-pulse');
+            } else {
+                btn.classList.add('bg-blue-600');
+                btn.classList.remove('bg-red-500', 'animate-pulse');
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            
+            if (!text || isThinking) return;
+
+            const userMessage = {
+                id: Date.now(),
+                role: 'user',
+                content: text,
+                timestamp: new Date().toISOString()
             };
 
-            const loadData = () => {
-                try {
-                    const settings = localStorage.getItem('ai-settings');
-                    if (settings) {
-                        const parsed = JSON.parse(settings);
-                        setUserName(parsed.userName || '');
-                        setDarkMode(parsed.darkMode !== false);
-                        setVoiceEnabled(parsed.voiceEnabled !== false);
-                        setAiPersonality(parsed.aiPersonality || 'helpful');
-                    }
+            messages.push(userMessage);
+            input.value = '';
+            renderMessages();
+            
+            isThinking = true;
+            document.getElementById('thinkingIndicator').classList.remove('hidden');
+            document.getElementById('sendBtn').disabled = true;
 
-                    const msgs = localStorage.getItem('ai-messages');
-                    if (msgs) setMessages(JSON.parse(msgs));
-                } catch (error) {
-                    console.log('Première utilisation');
-                }
-            };
+            try {
+                const personalityPrompts = {
+                    helpful: "Tu es un assistant IA personnel serviable et amical.",
+                    professional: "Tu es un assistant IA professionnel et précis.",
+                    casual: "Tu es un assistant IA décontracté et sympa.",
+                    concise: "Tu es un assistant IA qui répond de manière concise et directe."
+                };
 
-            const saveSettings = () => {
-                const settings = { userName, darkMode, voiceEnabled, aiPersonality };
-                localStorage.setItem('ai-settings', JSON.stringify(settings));
-            };
+                const systemPrompt = `${personalityPrompts[settings.aiPersonality]}${settings.userName ? ` L'utilisateur s'appelle ${settings.userName}.` : ''} Tu mémorises le contexte des conversations précédentes.`;
 
-            const saveMessages = (msgs) => {
-                localStorage.setItem('ai-messages', JSON.stringify(msgs));
-            };
+                const response = await fetch("https://api.anthropic.com/v1/messages", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        model: "claude-sonnet-4-20250514",
+                        max_tokens: 1000,
+                        system: systemPrompt,
+                        messages: messages.map(msg => ({
+                            role: msg.role,
+                            content: msg.content
+                        }))
+                    })
+                });
 
-            const toggleListening = () => {
-                if (isListening) {
-                    recognitionRef.current?.stop();
-                } else {
-                    recognitionRef.current?.start();
-                    setIsListening(true);
-                }
-            };
+                const data = await response.json();
+                const aiResponse = data.content[0].text;
 
-            const sendMessage = async () => {
-                if (!input.trim() || isThinking) return;
-
-                const userMessage = {
-                    id: Date.now(),
-                    role: 'user',
-                    content: input,
+                const aiMessage = {
+                    id: Date.now() + 1,
+                    role: 'assistant',
+                    content: aiResponse,
                     timestamp: new Date().toISOString()
                 };
 
-                const newMessages = [...messages, userMessage];
-                setMessages(newMessages);
-                setInput('');
-                setIsThinking(true);
+                messages.push(aiMessage);
+                localStorage.setItem('ai-messages', JSON.stringify(messages));
+                renderMessages();
 
-                try {
-                    const personalityPrompts = {
-                        helpful: "Tu es un assistant IA personnel serviable et amical.",
-                        professional: "Tu es un assistant IA professionnel et précis.",
-                        casual: "Tu es un assistant IA décontracté et sympa.",
-                        concise: "Tu es un assistant IA qui répond de manière concise et directe."
-                    };
-
-                    const systemPrompt = `${personalityPrompts[aiPersonality]}${userName ? ` L'utilisateur s'appelle ${userName}.` : ''} Tu mémorises le contexte des conversations précédentes.`;
-
-                    const response = await fetch("https://api.anthropic.com/v1/messages", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            model: "claude-sonnet-4-20250514",
-                            max_tokens: 1000,
-                            system: systemPrompt,
-                            messages: newMessages.map(msg => ({
-                                role: msg.role,
-                                content: msg.content
-                            }))
-                        })
-                    });
-
-                    const data = await response.json();
-                    const aiResponse = data.content[0].text;
-
-                    const aiMessage = {
-                        id: Date.now() + 1,
-                        role: 'assistant',
-                        content: aiResponse,
-                        timestamp: new Date().toISOString()
-                    };
-
-                    const updatedMessages = [...newMessages, aiMessage];
-                    setMessages(updatedMessages);
-                    saveMessages(updatedMessages);
-
-                    if (voiceEnabled && 'speechSynthesis' in window) {
-                        const utterance = new SpeechSynthesisUtterance(aiResponse);
-                        utterance.lang = 'fr-FR';
-                        window.speechSynthesis.speak(utterance);
-                    }
-                } catch (error) {
-                    console.error('Erreur:', error);
-                    const errorMessage = {
-                        id: Date.now() + 1,
-                        role: 'assistant',
-                        content: "Désolé, une erreur s'est produite. Veuillez réessayer.",
-                        timestamp: new Date().toISOString()
-                    };
-                    const updatedMessages = [...newMessages, errorMessage];
-                    setMessages(updatedMessages);
+                if (settings.voiceEnabled && 'speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(aiResponse);
+                    utterance.lang = 'fr-FR';
+                    window.speechSynthesis.speak(utterance);
                 }
+            } catch (error) {
+                console.error('Erreur:', error);
+                const errorMessage = {
+                    id: Date.now() + 1,
+                    role: 'assistant',
+                    content: "Désolé, une erreur s'est produite. Veuillez réessayer.",
+                    timestamp: new Date().toISOString()
+                };
+                messages.push(errorMessage);
+                renderMessages();
+            }
 
-                setIsThinking(false);
-            };
+            isThinking = false;
+            document.getElementById('thinkingIndicator').classList.add('hidden');
+            document.getElementById('sendBtn').disabled = false;
+        }
 
-            const clearHistory = () => {
-                if (confirm('Voulez-vous vraiment effacer tout l\'historique ?')) {
-                    setMessages([]);
-                    localStorage.removeItem('ai-messages');
-                }
-            };
+        function clearHistory() {
+            if (confirm('Voulez-vous vraiment effacer tout l\'historique ?')) {
+                messages = [];
+                localStorage.removeItem('ai-messages');
+                renderMessages();
+            }
+        }
 
-            const exportData = () => {
-                const dataStr = JSON.stringify({ messages, settings: { userName, darkMode, voiceEnabled, aiPersonality } }, null, 2);
-                const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                const url = URL.createObjectURL(dataBlob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `ai-backup-${new Date().toISOString().split('T')[0]}.json`;
-                link.click();
-            };
-
-            const bgClass = darkMode ? 'bg-gray-900' : 'bg-gray-50';
-            const cardClass = darkMode ? 'bg-gray-800' : 'bg-white';
-            const textClass = darkMode ? 'text-white' : 'text-gray-900';
-            const mutedClass = darkMode ? 'text-gray-400' : 'text-gray-600';
-
-            return html`
-                <div class="${`min-h-screen ${bgClass} ${textClass} transition-colors`}">
-                    <header class="${`${cardClass} shadow-lg p-4 flex items-center justify-between`}">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                                <span class="text-white font-bold">AI</span>
-                            </div>
-                            <div>
-                                <h1 class="text-xl font-bold">Assistant Personnel</h1>
-                                <p class="${`text-xs ${mutedClass}`}">Toujours à votre écoute</p>
-                            </div>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick=${() => setDarkMode(!darkMode)} class="${`p-2 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} hover:opacity-80`}">
-                                <i data-lucide="${darkMode ? 'sun' : 'moon'}" class="w-5 h-5"></i>
-                            </button>
-                            <button onclick=${() => setShowSettings(!showSettings)} class="${`p-2 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} hover:opacity-80`}">
-                                <i data-lucide="${showSettings ? 'x' : 'settings'}" class="w-5 h-5"></i>
-                            </button>
-                        </div>
-                    </header>
-
-                    ${showSettings && html`
-                        <div class="${`${cardClass} p-6 m-4 rounded-xl shadow-lg space-y-4`}">
-                            <h2 class="text-lg font-bold mb-4">Paramètres</h2>
-                            
-                            <div>
-                                <label class="block text-sm mb-2">Votre nom</label>
-                                <input type="text" value=${userName} 
-                                    oninput=${(e) => setUserName(e.target.value)}
-                                    onblur=${saveSettings}
-                                    placeholder="Comment vous appelez-vous ?"
-                                    class="${`w-full p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} border-0`}" />
-                            </div>
-
-                            <div>
-                                <label class="block text-sm mb-2">Personnalité de l'IA</label>
-                                <select value=${aiPersonality} 
-                                    onchange=${(e) => { setAiPersonality(e.target.value); saveSettings(); }}
-                                    class="${`w-full p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} border-0`}">
-                                    <option value="helpful">Serviable et amical</option>
-                                    <option value="professional">Professionnel</option>
-                                    <option value="casual">Décontracté</option>
-                                    <option value="concise">Concis et direct</option>
-                                </select>
-                            </div>
-
-                            <div class="flex items-center justify-between">
-                                <span>Réponses vocales</span>
-                                <button onclick=${() => { setVoiceEnabled(!voiceEnabled); saveSettings(); }}
-                                    class="${`w-12 h-6 rounded-full transition ${voiceEnabled ? 'bg-blue-500' : 'bg-gray-500'}`}">
-                                    <div class="${`w-5 h-5 bg-white rounded-full transition transform ${voiceEnabled ? 'translate-x-6' : 'translate-x-1'}`}"></div>
-                                </button>
-                            </div>
-
-                            <div class="flex gap-2 pt-4">
-                                <button onclick=${exportData}
-                                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg flex items-center justify-center gap-2">
-                                    <i data-lucide="download" class="w-5 h-5"></i>
-                                    Exporter
-                                </button>
-                                <button onclick=${clearHistory}
-                                    class="flex-1 bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg flex items-center justify-center gap-2">
-                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
-                                    Effacer
-                                </button>
-                            </div>
-                        </div>
-                    `}
-
-                    <div class="max-w-4xl mx-auto p-4 pb-32">
-                        ${messages.length === 0 ? html`
-                            <div class="text-center py-12">
-                                <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-                                    <span class="text-white text-3xl font-bold">AI</span>
-                                </div>
-                                <h2 class="text-2xl font-bold mb-2">Bonjour${userName && ` ${userName}`} !</h2>
-                                <p class="${mutedClass}">Comment puis-je vous aider aujourd'hui ?</p>
-                            </div>
-                        ` : messages.map((msg) => html`
-                            <div key=${msg.id} class="${`mb-4 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}">
-                                <div class="${`max-w-[80%] p-4 rounded-2xl ${msg.role === 'user' ? 'bg-blue-600 text-white' : darkMode ? 'bg-gray-800' : 'bg-gray-200'}`}">
-                                    <p class="whitespace-pre-wrap">${msg.content}</p>
-                                    <p class="text-xs mt-2 opacity-60">
-                                        ${new Date(msg.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                                    </p>
-                                </div>
-                            </div>
-                        `)}
-                        ${isThinking && html`
-                            <div class="flex justify-start mb-4">
-                                <div class="${`p-4 rounded-2xl ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`}">
-                                    <div class="flex gap-1">
-                                        <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
-                                        <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
-                                        <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        `}
-                        <div ref=${messagesEndRef}></div>
-                    </div>
-
-                    <div class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-gray-900 to-transparent">
-                        <div class="max-w-4xl mx-auto">
-                            <div class="${`${cardClass} rounded-2xl shadow-2xl p-4 flex gap-2`}">
-                                <button onclick=${toggleListening} disabled=${isThinking}
-                                    class="${`p-3 rounded-xl transition ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-blue-600 text-white hover:bg-blue-700'} disabled:opacity-50`}">
-                                    <i data-lucide="mic" class="w-6 h-6"></i>
-                                </button>
-                                <input type="text" value=${input}
-                                    oninput=${(e) => setInput(e.target.value)}
-                                    onkeypress=${(e) => e.key === 'Enter' && sendMessage()}
-                                    placeholder="Tapez votre message..."
-                                    disabled=${isThinking}
-                                    class="${`flex-1 p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} border-0 disabled:opacity-50`}" />
-                                <button onclick=${sendMessage} disabled=${!input.trim() || isThinking}
-                                    class="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50">
-                                    <i data-lucide="send" class="w-6 h-6"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        };
-
-        const root = createRoot(document.getElementById('app'));
-        root.render(React.createElement(PersonalAI));
+        function exportData() {
+            const dataStr = JSON.stringify({ messages, settings }, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `ai-backup-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+        }
     </script>
 </body>
 </html>
