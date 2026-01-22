@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Assistant IA Personnel - Votre compagnon intelligent">
+    <title>Assistant IA Personnel</title>
+    
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1F2937">
+    <link rel="apple-touch-icon" href="icon.png">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        .animate-bounce {
+            animation: bounce 1s infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+    <div id="app"></div>
+
+    <script type="module">
+        import { createRoot } from 'https://esm.sh/react@18.2.0/client';
+        import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18.2.0';
+        import htm from 'https://esm.sh/htm@3.1.1';
+
+        const html = htm.bind(React.createElement);
+
+        const PersonalAI = () => {
+            const [messages, setMessages] = useState([]);
+            const [input, setInput] = useState('');
+            const [isListening, setIsListening] = useState(false);
+            const [isThinking, setIsThinking] = useState(false);
+            const [darkMode, setDarkMode] = useState(true);
+            const [showSettings, setShowSettings] = useState(false);
+            const [userName, setUserName] = useState('');
+            const [voiceEnabled, setVoiceEnabled] = useState(true);
+            const [aiPersonality, setAiPersonality] = useState('helpful');
+            const messagesEndRef = useRef(null);
+            const recognitionRef = useRef(null);
+
+            useEffect(() => {
+                loadData();
+                initSpeechRecognition();
+                lucide.createIcons();
+            }, []);
+
+            useEffect(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                lucide.createIcons();
+            }, [messages, showSettings]);
+
+            const initSpeechRecognition = () => {
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    recognitionRef.current = new SpeechRecognition();
+                    recognitionRef.current.continuous = false;
+                    recognitionRef.current.interimResults = false;
+                    recognitionRef.current.lang = 'fr-FR';
+
+                    recognitionRef.current.onresult = (event) => {
+                        const transcript = event.results[0][0].transcript;
+                        setInput(transcript);
+                        setIsListening(false);
+                    };
+
+                    recognitionRef.current.onerror = () => setIsListening(false);
+                    recognitionRef.current.onend = () => setIsListening(false);
+                }
+            };
+
+            const loadData = () => {
+                try {
+                    const settings = localStorage.getItem('ai-settings');
+                    if (settings) {
+                        const parsed = JSON.parse(settings);
+                        setUserName(parsed.userName || '');
+                        setDarkMode(parsed.darkMode !== false);
+                        setVoiceEnabled(parsed.voiceEnabled !== false);
+                        setAiPersonality(parsed.aiPersonality || 'helpful');
+                    }
+
+                    const msgs = localStorage.getItem('ai-messages');
+                    if (msgs) setMessages(JSON.parse(msgs));
+                } catch (error) {
+                    console.log('Première utilisation');
+                }
+            };
+
+            const saveSettings = () => {
+                const settings = { userName, darkMode, voiceEnabled, aiPersonality };
+                localStorage.setItem('ai-settings', JSON.stringify(settings));
+            };
+
+            const saveMessages = (msgs) => {
+                localStorage.setItem('ai-messages', JSON.stringify(msgs));
+            };
+
+            const toggleListening = () => {
+                if (isListening) {
+                    recognitionRef.current?.stop();
+                } else {
+                    recognitionRef.current?.start();
+                    setIsListening(true);
+                }
+            };
+
+            const sendMessage = async () => {
+                if (!input.trim() || isThinking) return;
+
+                const userMessage = {
+                    id: Date.now(),
+                    role: 'user',
+                    content: input,
+                    timestamp: new Date().toISOString()
+                };
+
+                const newMessages = [...messages, userMessage];
+                setMessages(newMessages);
+                setInput('');
+                setIsThinking(true);
+
+                try {
+                    const personalityPrompts = {
+                        helpful: "Tu es un assistant IA personnel serviable et amical.",
+                        professional: "Tu es un assistant IA professionnel et précis.",
+                        casual: "Tu es un assistant IA décontracté et sympa.",
+                        concise: "Tu es un assistant IA qui répond de manière concise et directe."
+                    };
+
+                    const systemPrompt = `${personalityPrompts[aiPersonality]}${userName ? ` L'utilisateur s'appelle ${userName}.` : ''} Tu mémorises le contexte des conversations précédentes.`;
+
+                    const response = await fetch("https://api.anthropic.com/v1/messages", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            model: "claude-sonnet-4-20250514",
+                            max_tokens: 1000,
+                            system: systemPrompt,
+                            messages: newMessages.map(msg => ({
+                                role: msg.role,
+                                content: msg.content
+                            }))
+                        })
+                    });
+
+                    const data = await response.json();
+                    const aiResponse = data.content[0].text;
+
+                    const aiMessage = {
+                        id: Date.now() + 1,
+                        role: 'assistant',
+                        content: aiResponse,
+                        timestamp: new Date().toISOString()
+                    };
+
+                    const updatedMessages = [...newMessages, aiMessage];
+                    setMessages(updatedMessages);
+                    saveMessages(updatedMessages);
+
+                    if (voiceEnabled && 'speechSynthesis' in window) {
+                        const utterance = new SpeechSynthesisUtterance(aiResponse);
+                        utterance.lang = 'fr-FR';
+                        window.speechSynthesis.speak(utterance);
+                    }
+                } catch (error) {
+                    console.error('Erreur:', error);
+                    const errorMessage = {
+                        id: Date.now() + 1,
+                        role: 'assistant',
+                        content: "Désolé, une erreur s'est produite. Veuillez réessayer.",
+                        timestamp: new Date().toISOString()
+                    };
+                    const updatedMessages = [...newMessages, errorMessage];
+                    setMessages(updatedMessages);
+                }
+
+                setIsThinking(false);
+            };
+
+            const clearHistory = () => {
+                if (confirm('Voulez-vous vraiment effacer tout l\'historique ?')) {
+                    setMessages([]);
+                    localStorage.removeItem('ai-messages');
+                }
+            };
+
+            const exportData = () => {
+                const dataStr = JSON.stringify({ messages, settings: { userName, darkMode, voiceEnabled, aiPersonality } }, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `ai-backup-${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+            };
+
+            const bgClass = darkMode ? 'bg-gray-900' : 'bg-gray-50';
+            const cardClass = darkMode ? 'bg-gray-800' : 'bg-white';
+            const textClass = darkMode ? 'text-white' : 'text-gray-900';
+            const mutedClass = darkMode ? 'text-gray-400' : 'text-gray-600';
+
+            return html`
+                <div class="${`min-h-screen ${bgClass} ${textClass} transition-colors`}">
+                    <header class="${`${cardClass} shadow-lg p-4 flex items-center justify-between`}">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                                <span class="text-white font-bold">AI</span>
+                            </div>
+                            <div>
+                                <h1 class="text-xl font-bold">Assistant Personnel</h1>
+                                <p class="${`text-xs ${mutedClass}`}">Toujours à votre écoute</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick=${() => setDarkMode(!darkMode)} class="${`p-2 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} hover:opacity-80`}">
+                                <i data-lucide="${darkMode ? 'sun' : 'moon'}" class="w-5 h-5"></i>
+                            </button>
+                            <button onclick=${() => setShowSettings(!showSettings)} class="${`p-2 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} hover:opacity-80`}">
+                                <i data-lucide="${showSettings ? 'x' : 'settings'}" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </header>
+
+                    ${showSettings && html`
+                        <div class="${`${cardClass} p-6 m-4 rounded-xl shadow-lg space-y-4`}">
+                            <h2 class="text-lg font-bold mb-4">Paramètres</h2>
+                            
+                            <div>
+                                <label class="block text-sm mb-2">Votre nom</label>
+                                <input type="text" value=${userName} 
+                                    oninput=${(e) => setUserName(e.target.value)}
+                                    onblur=${saveSettings}
+                                    placeholder="Comment vous appelez-vous ?"
+                                    class="${`w-full p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} border-0`}" />
+                            </div>
+
+                            <div>
+                                <label class="block text-sm mb-2">Personnalité de l'IA</label>
+                                <select value=${aiPersonality} 
+                                    onchange=${(e) => { setAiPersonality(e.target.value); saveSettings(); }}
+                                    class="${`w-full p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} border-0`}">
+                                    <option value="helpful">Serviable et amical</option>
+                                    <option value="professional">Professionnel</option>
+                                    <option value="casual">Décontracté</option>
+                                    <option value="concise">Concis et direct</option>
+                                </select>
+                            </div>
+
+                            <div class="flex items-center justify-between">
+                                <span>Réponses vocales</span>
+                                <button onclick=${() => { setVoiceEnabled(!voiceEnabled); saveSettings(); }}
+                                    class="${`w-12 h-6 rounded-full transition ${voiceEnabled ? 'bg-blue-500' : 'bg-gray-500'}`}">
+                                    <div class="${`w-5 h-5 bg-white rounded-full transition transform ${voiceEnabled ? 'translate-x-6' : 'translate-x-1'}`}"></div>
+                                </button>
+                            </div>
+
+                            <div class="flex gap-2 pt-4">
+                                <button onclick=${exportData}
+                                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg flex items-center justify-center gap-2">
+                                    <i data-lucide="download" class="w-5 h-5"></i>
+                                    Exporter
+                                </button>
+                                <button onclick=${clearHistory}
+                                    class="flex-1 bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg flex items-center justify-center gap-2">
+                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                    Effacer
+                                </button>
+                            </div>
+                        </div>
+                    `}
+
+                    <div class="max-w-4xl mx-auto p-4 pb-32">
+                        ${messages.length === 0 ? html`
+                            <div class="text-center py-12">
+                                <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                                    <span class="text-white text-3xl font-bold">AI</span>
+                                </div>
+                                <h2 class="text-2xl font-bold mb-2">Bonjour${userName && ` ${userName}`} !</h2>
+                                <p class="${mutedClass}">Comment puis-je vous aider aujourd'hui ?</p>
+                            </div>
+                        ` : messages.map((msg) => html`
+                            <div key=${msg.id} class="${`mb-4 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}">
+                                <div class="${`max-w-[80%] p-4 rounded-2xl ${msg.role === 'user' ? 'bg-blue-600 text-white' : darkMode ? 'bg-gray-800' : 'bg-gray-200'}`}">
+                                    <p class="whitespace-pre-wrap">${msg.content}</p>
+                                    <p class="text-xs mt-2 opacity-60">
+                                        ${new Date(msg.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                </div>
+                            </div>
+                        `)}
+                        ${isThinking && html`
+                            <div class="flex justify-start mb-4">
+                                <div class="${`p-4 rounded-2xl ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`}">
+                                    <div class="flex gap-1">
+                                        <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+                                        <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                                        <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        `}
+                        <div ref=${messagesEndRef}></div>
+                    </div>
+
+                    <div class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-gray-900 to-transparent">
+                        <div class="max-w-4xl mx-auto">
+                            <div class="${`${cardClass} rounded-2xl shadow-2xl p-4 flex gap-2`}">
+                                <button onclick=${toggleListening} disabled=${isThinking}
+                                    class="${`p-3 rounded-xl transition ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-blue-600 text-white hover:bg-blue-700'} disabled:opacity-50`}">
+                                    <i data-lucide="mic" class="w-6 h-6"></i>
+                                </button>
+                                <input type="text" value=${input}
+                                    oninput=${(e) => setInput(e.target.value)}
+                                    onkeypress=${(e) => e.key === 'Enter' && sendMessage()}
+                                    placeholder="Tapez votre message..."
+                                    disabled=${isThinking}
+                                    class="${`flex-1 p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} border-0 disabled:opacity-50`}" />
+                                <button onclick=${sendMessage} disabled=${!input.trim() || isThinking}
+                                    class="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50">
+                                    <i data-lucide="send" class="w-6 h-6"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        const root = createRoot(document.getElementById('app'));
+        root.render(React.createElement(PersonalAI));
+    </script>
+</body>
+</html>
